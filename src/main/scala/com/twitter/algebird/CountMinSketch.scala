@@ -55,7 +55,7 @@ package com.twitter.algebird
  * @seed  A seed to initialize the random number generator used to create
  *        the pairwise independent hash functions.
  */
-class CountMinSketchMonoid(depth : Int, width : Int, seed : Int) extends Monoid[CMS] {
+class CountMinSketchMonoid(depth : Int, width : Int, seed : Int) extends Monoid[CountMinSketch] {
 
   // Typically, we would use d pairwise independent hash functions of the form
   //
@@ -71,22 +71,22 @@ class CountMinSketchMonoid(depth : Int, width : Int, seed : Int) extends Monoid[
     (0 to (depth - 1)).map { _ => CMSHash(r.nextInt, 0, width) }    
   }
   
-  val zero : CMS = CMSZero(hashes, depth, width)
+  val zero : CountMinSketch = CMSZero(hashes, depth, width)
   
   /**
    * We assume the Count-Min sketches on the left and right use the same hash functions.
    */
-  def plus(left : CMS, right : CMS) : CMS = left ++ right
+  def plus(left : CountMinSketch, right : CountMinSketch) : CountMinSketch = left ++ right
   
   /**
    * Create a Count-Min sketch out of a single item.
    */
-  def create(item : Long) : CMS = CMSItem(item, hashes, depth, width)
+  def create(item : Long) : CountMinSketch = CMSItem(item, hashes, depth, width)
   
   /**
    * Creates a Count-Min sketch out of the given data stream.
    */
-  def create(data : Seq[Long]) : CMS = {
+  def create(data : Seq[Long]) : CountMinSketch = {
     data.foldLeft(zero) { case (acc, x) => plus(acc, create(x)) }
   }
 }
@@ -94,14 +94,14 @@ class CountMinSketchMonoid(depth : Int, width : Int, seed : Int) extends Monoid[
 /**
  * The actual Count-Min sketch data structure.
  */
-sealed abstract class CMS extends java.io.Serializable {
+sealed abstract class CountMinSketch extends java.io.Serializable {
   // The total number of elements seen in the data stream so far.
   def totalCount : Long
   
   def depth : Int
   def width : Int
   
-  def ++(other : CMS) : CMS
+  def ++(other : CountMinSketch) : CountMinSketch
   
   /**
    * Returns an estimate of the total number of times this item has been seen
@@ -122,9 +122,9 @@ sealed abstract class CMS extends java.io.Serializable {
 /**
  * Used for initialization.
  */
-case class CMSZero(hashes : Seq[CMSHash], depth : Int, width : Int) extends CMS {
+case class CMSZero(hashes : Seq[CMSHash], depth : Int, width : Int) extends CountMinSketch {
   def totalCount = 0L  
-  def ++(other : CMS) = other
+  def ++(other : CountMinSketch) = other
   def estimateFrequency(item : Long) = 0L
 }
 
@@ -132,10 +132,10 @@ case class CMSZero(hashes : Seq[CMSHash], depth : Int, width : Int) extends CMS 
  * Used for holding a single element, to avoid repeatedly adding elements from
  * sparse counts tables.
  */
-case class CMSItem(item : Long, hashes : Seq[CMSHash], depth : Int, width : Int) extends CMS {
+case class CMSItem(item : Long, hashes : Seq[CMSHash], depth : Int, width : Int) extends CountMinSketch {
   def totalCount = 1L
   
-  def ++(other : CMS) : CMS = {
+  def ++(other : CountMinSketch) : CountMinSketch = {
     other match {
       case CMSZero(_, _, _) => this
       case CMSItem(otherItem, _, _, _) => {
@@ -152,14 +152,15 @@ case class CMSItem(item : Long, hashes : Seq[CMSHash], depth : Int, width : Int)
 /**
  * The general sketch structure, used for holding any number of elements.
  */ 
-case class CMSInstance(hashes : Seq[CMSHash], countsTable : CMSCountsTable, totalCnt : Long) extends CMS {
+case class CMSInstance(hashes : Seq[CMSHash], countsTable : CMSCountsTable, totalCnt : Long) 
+  extends CountMinSketch {
 
   def totalCount : Long = totalCnt
     
   def depth : Int = countsTable.depth
   def width : Int = countsTable.width
   
-  def ++(other : CMS) : CMS = {
+  def ++(other : CountMinSketch) : CountMinSketch = {
     other match {
       case cms@CMSZero(_, _, _) => cms ++ this
       case cms@CMSItem(_, _, _, _) => cms ++ this

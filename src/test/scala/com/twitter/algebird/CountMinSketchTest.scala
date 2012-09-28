@@ -18,7 +18,7 @@ object CountMinSketchLaws extends Properties("CountMinSketch") with BaseProperti
       for (v <- choose(0, 10000)) yield (cmsMonoid.create(v))
     }
 
-  property("CountMinSketch is a Monoid") = monoidLaws[CMS]
+  property("CountMinSketch is a Monoid") = monoidLaws[CountMinSketch]
 }
 
 class CountMinSketchTest extends Specification {
@@ -42,7 +42,7 @@ class CountMinSketchTest extends Specification {
    * Returns the estimated frequency of {x} in the given Count-Min sketch
    * structure.
    */
-  def approximateFrequency(cms : CMS, x : Long) : Long = {
+  def approximateFrequency(cms : CountMinSketch, x : Long) : Long = {
     cms.estimateFrequency(x)
   }
 
